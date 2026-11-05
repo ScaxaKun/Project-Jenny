@@ -7,7 +7,7 @@ Sistem ini dirancang untuk membantu proses pemantauan aktivitas di lingkungan Ru
 
 ## Tujuan Proyek
 
-Mengembangkan sistem monitoring CCTV berbasis web yang dapat menampilkan informasi hasil deteksi manusia dan aktivitasnya secara terpusat melalui server.
+Membangun sistem monitoring CCTV berbasis web yang dapat menampilkan informasi hasil deteksi manusia dan aktivitasnya secara terpusat melalui server.
 
 ## Arsitektur Sistem
 
