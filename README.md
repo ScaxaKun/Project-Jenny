@@ -42,7 +42,7 @@ Sistem SIMOCS memiliki alur kerja sebagai berikut:
 ## Struktur Repository
 
 ```text
-SIMOCS/
+CCTV_Monitoring/
 ├── static/
 ├── templates/
 ├── app.py
