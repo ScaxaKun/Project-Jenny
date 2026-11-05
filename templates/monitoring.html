@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring - SIMOCS{% endblock %}
+{% block page_title %}Monitoring{% endblock %}
+
+{% block content %}
+
+<!-- MONITORING TOOLBAR -->
+<div class="monitoring-toolbar">
+    <div class="monitoring-heading">
+        <div>
+            <h2 class="monitoring-heading-title">Camera Monitoring</h2>
+            <p class="monitoring-heading-desc">Monitor people and activity in real-time.</p>
+        </div>
+    </div>
+
+    <div class="monitoring-toolbar-actions">
+        <form method="GET" action="/monitoring" class="monitoring-camera-form">
+            <label for="cameraSelect">Select Camera</label>
+            <select id="cameraSelect" name="camera" onchange="this.form.submit()">
+                {% for cam in cameras %}
+                <option value="{{ cam }}" {% if cam == selected_camera %}selected{% endif %}>{{ cam }}</option>
+                {% endfor %}
+                {% if not cameras %}
+                <option value="">No cameras available</option>
+                {% endif %}
+            </select>
+        </form>
+
+        <div class="monitoring-connection">
+            <span class="status-pill lg" id="statusPill">Checking...</span>
+            <span class="monitoring-status-note" id="statusNote"></span>
+        </div>
+    </div>
+</div>
+
+<!-- LIVE VIEW AND CURRENT DETECTION -->
+<div class="monitoring-main-grid">
+
+    <!-- LIVE VIEW -->
+    <section class="panel monitoring-live-panel">
+        <div class="panel-header monitoring-panel-heading">
+            <div class="monitoring-panel-title">
+                <div>
+                    <h3>Live View {% if selected_camera %}<span class="camera-name">· {{ selected_camera }}</span>{% endif %}</h3>
+                    <p class="monitoring-panel-subtitle">Camera feed</p>
+                </div>
+            </div>
+            <span class="badge monitoring-stream-badge">
+                <span class="stream-indicator"></span> Waiting for stream
+            </span>
+        </div>
+
+        <div class="panel-body monitoring-live-body">
+            <div class="video-placeholder monitoring-video-placeholder">
+                <h4>Live stream not available</h4>
+                <p>Video feed will be available after AI Engine integration and RTSP camera connection.</p>
+                <span class="video-placeholder-caption">SIMOCS · Camera Stream</span>
+            </div>
+        </div>
+
+        <div class="monitoring-live-footer">
+            <span class="monitoring-footer-dot"></span>
+            <span>Video source will be displayed here</span>
+        </div>
+    </section>
+
+    <!-- CURRENT DETECTION -->
+    <section class="panel monitoring-detection-panel" id="detectionPanel">
+        <div class="panel-header monitoring-panel-heading">
+            <div class="monitoring-panel-title">
+                <div>
+                    <h3 id="detectionTitle">Current Detection</h3>
+                    <p class="monitoring-panel-subtitle">Latest detection summary</p>
+                </div>
+            </div>
+            <span class="monitoring-live-label">REAL-TIME DATA</span>
+        </div>
+
+        <div class="panel-body monitoring-detection-body">
+            <div class="people-summary-card">
+                <div class="people-summary-top">
+                    <span class="people-summary-label">People Detected</span>
+                </div>
+                <div class="people-summary-number" id="personCount">-</div>
+                <div class="people-summary-caption">Count from the latest detection</div>
+            </div>
+
+            <div class="monitoring-stat-grid">
+                <div class="monitoring-stat-card stat-standing">
+                    <div class="monitoring-stat-top"><span class="monitoring-stat-label">Standing</span></div>
+                    <div class="monitoring-stat-value" id="standingCount">-</div>
+                    <span class="monitoring-stat-caption">Standing</span>
+                </div>
+                <div class="monitoring-stat-card stat-sitting">
+                    <div class="monitoring-stat-top"><span class="monitoring-stat-label">Sitting</span></div>
+                    <div class="monitoring-stat-value" id="sittingCount">-</div>
+                    <span class="monitoring-stat-caption">Sitting</span>
+                </div>
+                <div class="monitoring-stat-card stat-walking">
+                    <div class="monitoring-stat-top"><span class="monitoring-stat-label">Walking</span></div>
+                    <div class="monitoring-stat-value" id="walkingCount">-</div>
+                    <span class="monitoring-stat-caption">Walking</span>
+                </div>
+                <div class="monitoring-stat-card stat-alert">
+                    <div class="monitoring-stat-top"><span class="monitoring-stat-label">Active Alerts</span></div>
+                    <div class="monitoring-stat-value" id="alertCount">-</div>
+                    <span class="monitoring-stat-caption">Active warnings</span>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- ACTIVE ALERTS -->
+<div class="alert-panel monitoring-alert-panel" id="alertPanel" hidden>
+    <div class="monitoring-alert-heading">
+        <div>
+            <h3>Activity Warning</h3>
+            <p id="alertTitle"></p>
+        </div>
+    </div>
+    <ul class="alert-list monitoring-alert-list" id="alertList" aria-live="polite"></ul>
+</div>
+
+<!-- CURRENT ACTIVITY -->
+<section class="panel monitoring-activity-panel" id="activityPanel">
+    <div class="panel-header monitoring-panel-heading">
+        <div class="monitoring-panel-title">
+            <div>
+                <h3 id="activityTitle">Current Activity</h3>
+                <p class="monitoring-panel-subtitle">Activity details for each detected person</p>
+            </div>
+        </div>
+        <span class="badge monitoring-activity-count" id="activityCount">0 people</span>
+    </div>
+
+    <div class="panel-body flush">
+        <div class="monitoring-table-wrap">
+            <table class="data-table monitoring-activity-table">
+                <thead><tr><th>Person</th><th>Activity</th><th>Duration</th></tr></thead>
+                <tbody id="activityBody" aria-live="polite">
+                    <tr><td colspan="3" class="empty-state">Loading data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="monitoring-table-footer">
+            <span class="monitoring-footer-dot"></span>
+            Data updates automatically every 5 seconds
+        </div>
+    </div>
+</section>
+
+<!-- ACTIVITY TIMELINE -->
+<section class="panel monitoring-activity-panel" style="margin-top: 22px;">
+    <div class="panel-header monitoring-panel-heading">
+        <div class="monitoring-panel-title">
+            <div>
+                <h3>Activity Timeline</h3>
+                <p class="monitoring-panel-subtitle">Chronological history of detected activities</p>
+            </div>
+        </div>
+        <span class="badge monitoring-activity-count">Latest 10 Events</span>
+    </div>
+
+    <div class="panel-body flush">
+        <div class="monitoring-table-wrap">
+            <table class="data-table monitoring-activity-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Person</th>
+                        <th>Activity</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if timeline_data %}
+                        {% for row in timeline_data %}
+                        <tr>
+                            <td class="monitoring-duration-cell" style="color: var(--text-muted);">{{ row.time_only }}</td>
+                            <td class="monitoring-person-cell">Person #{{ row.person_id }}</td>
+                            <td>
+                                {% set act_name = row.activity|lower %}
+                                <span class="badge-activity {% if act_name == 'standing' %}badge-standing{% elif act_name == 'sitting' %}badge-sitting{% elif act_name == 'walking' %}badge-walking{% else %}badge-default{% endif %}">
+                                    {{ row.activity }}
+                                </span>
+                            </td>
+                            <td class="monitoring-duration-cell">{{ row.duration }} s</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="empty-state">No activity history available.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        <div class="monitoring-table-footer">
+            <span class="monitoring-footer-dot"></span>
+            Showing the latest activity events for this camera.
+        </div>
+    </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/simocs.js') }}"></script>
+<script>
+(function () {
+    var CAMERA = {{ selected_camera|tojson }};
+    var REFRESH_MS = 5000;
+    var last = null; var activities = []; var personCount = 0; var loaded = false; var hasData = false; var serverError = false; var lastFresh = null;
+
+    function $(id) { return document.getElementById(id); }
+    function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; }
+
+    function renderAlerts(fresh) {
+        var alerts = fresh ? activities.filter(Simocs.isAlert) : [];
+        var panel = $('alertPanel'); var list = $('alertList');
+        $('alertCount').textContent = fresh ? alerts.length : '-';
+        $('alertCount').classList.toggle('is-alert', fresh && alerts.length > 0);
+        while (list.firstChild) list.removeChild(list.firstChild);
+        panel.hidden = alerts.length === 0;
+        if (alerts.length === 0) return;
+        $('alertTitle').textContent = Simocs.plural(alerts.length, 'active alert') + ': sitting or standing for ' + Simocs.formatLongDuration(Simocs.alertAfterSec) + ' or more';
+        alerts.forEach(function (act) {
+            var li = el('li', 'alert-item');
+            li.appendChild(el('strong', null, 'Person ' + act.person_id));
+            li.appendChild(document.createTextNode(' has been ' + String(act.activity).toLowerCase() + ' for ' + Simocs.formatLongDuration(act.duration)));
+            list.appendChild(li);
+        });
+    }
+
+    function renderActivities() {
+        var list = activities; var body = $('activityBody');
+        while (body.firstChild) body.removeChild(body.firstChild);
+        $('activityCount').textContent = Simocs.people(list.length);
+        if (list.length === 0) {
+            var tr = el('tr'); var td = el('td', 'empty-state', 'No activity detected yet.'); td.colSpan = 3; tr.appendChild(td); body.appendChild(tr); return;
+        }
+        list.forEach(function (act) {
+            var alert = lastFresh && Simocs.isAlert(act);
+            var row = el('tr', alert ? 'is-alert' : null);
+            row.appendChild(el('td', 'monitoring-person-cell', '#' + act.person_id));
+            var tdAct = el('td'); tdAct.appendChild(el('span', 'badge-activity ' + Simocs.activityClass(act.activity), act.activity));
+            if (alert) tdAct.appendChild(el('span', 'alert-tag', 'Too long'));
+            row.appendChild(tdAct);
+            row.appendChild(el('td', alert ? 'duration-alert' : 'monitoring-duration-cell', Simocs.formatLongDuration(act.duration)));
+            body.appendChild(row);
+        });
+    }
+
+    function paintStatus() {
+        var pill = $('statusPill'); var note = $('statusNote');
+        if (!loaded) { pill.className = 'status-pill lg'; pill.textContent = 'Checking...'; note.textContent = ''; return; }
+        if (serverError) {
+            pill.className = 'status-pill lg is-nodata'; pill.textContent = 'Unknown';
+            note.textContent = 'Cannot reach the server. Retrying...';
+            renderAlerts(false);
+            if (lastFresh !== false) { lastFresh = false; renderActivities(); }
+            return;
+        }
+        var f = Simocs.freshness(hasData ? last : null);
+        pill.className = 'status-pill lg is-' + f.state; pill.textContent = f.label;
+        var old = f.state === 'offline';
+        $('detectionPanel').classList.toggle('is-old', old); $('activityPanel').classList.toggle('is-old', old);
+        $('detectionTitle').textContent = old ? 'Last Known Detection' : 'Current Detection';
+        $('activityTitle').textContent = old ? 'Last Known Activity' : 'Current Activity';
+        if (f.state === 'nodata') note.textContent = 'No data received for this camera yet.';
+        else note.textContent = 'Last data: ' + Simocs.formatDateTime(f.date) + ' (' + f.ageText + ')';
+        var fresh = f.state === 'online' || f.state === 'delayed';
+        renderAlerts(fresh);
+        if (fresh !== lastFresh) { lastFresh = fresh; renderActivities(); }
+    }
+
+    function render(data) {
+        var standing = 0; var sitting = 0; var walking = 0;
+        activities.forEach(function (a) {
+            var name = String(a.activity).toLowerCase();
+            if (name === 'standing') standing++;
+            else if (name === 'sitting') sitting++;
+            else if (name === 'walking') walking++;
+        });
+        personCount = data.has_data ? data.person_count : 0;
+        $('personCount').textContent = personCount; $('standingCount').textContent = standing; $('sittingCount').textContent = sitting; $('walkingCount').textContent = walking;
+        renderActivities();
+    }
+
+    function fetchLatest() {
+        var url = CAMERA ? '/api/latest?camera=' + encodeURIComponent(CAMERA) : '/api/latest';
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { if (r.redirected) { window.location.href = r.url; throw new Error('session ended'); } if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function (data) {
+                serverError = false; loaded = true; hasData = !!data.has_data; last = data.timestamp; activities = data.activities || [];
+                render(data); paintStatus();
+            }).catch(function () { serverError = true; loaded = true; paintStatus(); });
+    }
+
+    paintStatus(); fetchLatest(); setInterval(paintStatus, 1000); setInterval(fetchLatest, REFRESH_MS);
+})();
+</script>
+
+{% endblock %}

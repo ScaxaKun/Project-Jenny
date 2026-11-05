@@ -1,0 +1,173 @@
+{%- set app_name = 'SIMOCS' -%}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SIMOCS{% endblock %}</title>
+
+    <script>
+        // Baca status sidebar SEBELUM halaman digambar.
+        // Dengan begitu sidebar langsung tampil dengan ukuran yang benar
+        // dan tidak "loncat" setiap kali pindah menu.
+        try {
+            if (localStorage.getItem('sidebarCollapsed') === 'true') {
+                document.documentElement.classList.add('sidebar-collapsed');
+            }
+        } catch (e) {}
+    </script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+
+        <!-- BRAND / LOGO -->
+        <div class="sidebar-brand">
+            <div class="brand-logo">
+                <img src="{{ url_for('static', filename='img/logo_pusri.png') }}"
+                     alt="PUSRI"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="brand-logo-fallback" style="display:none;">P</div>
+            </div>
+            <div class="brand-text">
+                <h2>{{ app_name }}</h2>
+                <span>PT Pupuk Sriwidjaja</span>
+            </div>
+        </div>
+
+        <!-- TOGGLE BUTTON (tanpa tooltip tulisan) -->
+        <button class="sidebar-toggle" type="button" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+        </button>
+
+        <!-- NAV: Atribut title dihapus agar tidak muncul tooltip -->
+        <nav class="sidebar-nav">
+
+            <a href="/" class="{% if active_page == 'dashboard' %}active{% endif %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <span class="nav-text">Dashboard</span>
+            </a>
+
+            <a href="/monitoring" class="{% if active_page == 'monitoring' %}active{% endif %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span class="nav-text">Monitoring</span>
+            </a>
+
+            <a href="/history" class="{% if active_page == 'history' %}active{% endif %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="nav-text">History</span>
+            </a>
+
+            <a href="/statistics" class="{% if active_page == 'statistics' %}active{% endif %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <span class="nav-text">Statistics</span>
+            </a>
+
+            {% if session.role == 'user' %}
+            <a href="/account" class="{% if active_page == 'account' %}active{% endif %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 00-9 0v3.75m-1.5 0h12a1.5 1.5 0 011.5 1.5v7.5a1.5 1.5 0 01-1.5 1.5h-12a1.5 1.5 0 01-1.5-1.5V12a1.5 1.5 0 011.5-1.5z" />
+                </svg>
+                <span class="nav-text">Change Password</span>
+            </a>
+            {% endif %}
+
+            {% if session.role == 'admin' %}
+            <a href="/users" class="{% if active_page == 'users' %}active{% endif %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span class="nav-text">User Management</span>
+            </a>
+            {% endif %}
+
+        </nav>
+
+        <div class="sidebar-footer">
+            <span class="nav-text">&copy; 2026 {{ app_name }}</span>
+        </div>
+    </aside>
+
+    <!-- MAIN AREA -->
+    <div class="main-area" id="mainArea">
+
+        <header class="topbar">
+            <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+
+            <div class="topbar-right">
+                <div class="topbar-user">
+                    <div class="user-badge" aria-label="Signed-in user">
+                        <span class="user-avatar" aria-hidden="true">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        </span>
+                        <span class="user-name">{{ session.full_name }}</span>
+                    </div>
+                    <a href="/logout" class="logout-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        <span class="logout-text">Sign out</span>
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-container" id="flashContainer">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}" data-auto-dismiss="{{ 'true' if category == 'success' else 'false' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <main class="content">
+            {% block content %}{% endblock %}
+        </main>
+
+    </div>
+
+</div>
+
+<script>
+    // SIDEBAR COLLAPSE / EXPAND
+    function toggleSidebar() {
+        var collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+        try { localStorage.setItem('sidebarCollapsed', collapsed); } catch (e) {}
+    }
+
+    // PESAN SUKSES HILANG SENDIRI (3 detik)
+    (function () {
+        var flashes = document.querySelectorAll('.flash[data-auto-dismiss="true"]');
+        flashes.forEach(function (el) {
+            setTimeout(function () {
+                el.style.transition = 'opacity 0.3s ease';
+                el.style.opacity = '0';
+                setTimeout(function () { el.remove(); }, 300);
+            }, 3000);
+        });
+    })();
+</script>
+
+</body>
+</html>

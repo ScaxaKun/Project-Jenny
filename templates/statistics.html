@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - SIMOCS{% endblock %}
+{% block page_title %}Statistics{% endblock %}
+
+{% block content %}
+
+<!-- ============================= -->
+<!-- RINGKASAN -->
+<!-- ============================= -->
+<section class="summary-strip cols-4" aria-label="Summary">
+
+    <div class="summary-cell">
+        <div class="summary-label">Total detections</div>
+        <div class="summary-value">{{ total_detections }}</div>
+        <div class="summary-note">Records received</div>
+    </div>
+
+    <div class="summary-cell">
+        <div class="summary-label">People counted</div>
+        <div class="summary-value">{{ total_persons }}</div>
+        <div class="summary-note">Sum across all detections</div>
+    </div>
+
+    <div class="summary-cell">
+        <div class="summary-label">Average per detection</div>
+        <div class="summary-value">{{ avg_persons }}</div>
+        <div class="summary-note">People in each detection</div>
+    </div>
+
+    <!-- Kartu Peak Hour -->
+    <div class="summary-cell">
+        <div class="summary-label">Peak Hour</div>
+        <div class="summary-value summary-value-sm">{{ peak_hour_label }}</div>
+        <div class="summary-note">
+            {% if peak_hour_count > 0 %}
+                {{ peak_hour_count }} detections recorded
+            {% else %}
+                No data recorded
+            {% endif %}
+        </div>
+    </div>
+
+</section>
+
+<!-- ============================= -->
+<!-- TREN HARIAN -->
+<!-- ============================= -->
+<div class="panel">
+    <div class="panel-header">
+        <h3>Daily trend</h3>
+        <span class="badge">Per day</span>
+    </div>
+    <div class="panel-body">
+        {% if daily_labels %}
+        <div class="chart-legend">
+            <span><i class="legend-swatch swatch-people"></i>People counted</span>
+            <span><i class="legend-swatch swatch-detections"></i>Detections</span>
+        </div>
+        <div class="chart-box" id="dailyChart" role="img" aria-label="Daily people counted and detections"></div>
+        {% else %}
+        <div class="empty-state">No data for the trend chart yet.</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ============================= -->
+<!-- STATISTIK PER JAM -->
+<!-- ============================= -->
+<div class="panel">
+    <div class="panel-header">
+        <h3>Hourly Activity Statistics</h3>
+        <span class="badge">Per hour (00:00 - 23:59)</span>
+    </div>
+    <div class="panel-body">
+        <div class="activity-legend" style="margin-bottom: 24px;">
+            <span class="activity-legend-item"><span class="activity-legend-dot" style="background:var(--act-standing);"></span> Standing</span>
+            <span class="activity-legend-item"><span class="activity-legend-dot" style="background:var(--act-sitting);"></span> Sitting</span>
+            <span class="activity-legend-item"><span class="activity-legend-dot" style="background:var(--act-walking);"></span> Walking</span>
+        </div>
+        
+        <div class="chart-box" id="hourlyChart" role="img" aria-label="Hourly activity statistics"></div>
+        
+        <!-- Tabel Ringkasan Per Jam (Sudah Bahasa Inggris) -->
+        <div class="monitoring-table-wrap" style="margin-top: 24px;">
+            <table class="data-table history-table">
+                <thead>
+                    <tr>
+                        <th>Hour</th>
+                        <th>Standing (Events)</th>
+                        <th>Sitting (Events)</th>
+                        <th>Walking (Events)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in range(24) %}
+                    {% if hourly_standing[i] > 0 or hourly_sitting[i] > 0 or hourly_walking[i] > 0 %}
+                    <tr>
+                        <td><strong>{{ "%02d:00 - %02d:59"|format(i, i) }}</strong></td>
+                        <td><span class="badge-activity badge-standing">{{ hourly_standing[i] }}</span></td>
+                        <td><span class="badge-activity badge-sitting">{{ hourly_sitting[i] }}</span></td>
+                        <td><span class="badge-activity badge-walking">{{ hourly_walking[i] }}</span></td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                    {% if not (hourly_standing|sum > 0 or hourly_sitting|sum > 0 or hourly_walking|sum > 0) %}
+                    <tr>
+                        <td colspan="4" class="empty-state">No hourly activity data available.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ============================= -->
+<!-- DISTRIBUSI AKTIVITAS (Diperbaiki) -->
+<!-- ============================= -->
+<div class="panel">
+    <div class="panel-header">
+        <h3>Activity distribution</h3>
+        {% if activity_rows %}
+        <span class="badge">{{ activity_rows|sum(attribute='jumlah') }} total occurrences</span>
+        {% endif %}
+    </div>
+    <div class="panel-body">
+        {% if activity_rows %}
+        {% set act_total = activity_rows|sum(attribute='jumlah') %}
+        <div class="bar-list">
+            {% for row in activity_rows %}
+            {% set act_name = (row.activity or '')|lower %}
+            {% set percentage = (row.jumlah * 100 / act_total)|round(1) %}
+            <div class="bar-row">
+                <span class="bar-label">{{ row.activity }}</span>
+                <div class="bar-track" title="{{ percentage }}% of all occurrences">
+                    <!-- 
+                        PERBAIKAN: 
+                        Lebar bar sekarang menggunakan 'percentage' (persentase asli dari total), 
+                        bukan lagi dibandingkan dengan nilai tertinggi (act_max).
+                    -->
+                    <div class="bar-fill {% if 'stand' in act_name %}bar-fill-standing{% elif 'sit' in act_name %}bar-fill-sitting{% elif 'walk' in act_name %}bar-fill-walking{% else %}bar-fill-default{% endif %}" 
+                         style="width: {{ percentage }}%;"></div>
+                </div>
+                <span class="bar-value">{{ row.jumlah }}<small>{{ percentage|round|int }}%</small></span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">No activity recorded yet.</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ============================= -->
+<!-- SCRIPT GRAFIK (Daily & Hourly) -->
+<!-- ============================= -->
+{% if daily_labels %}
+<script>
+    (function () {
+        // ==========================================
+        // 1. GRAFIK TREN HARIAN
+        // ==========================================
+        var labels = {{ daily_labels|tojson }};
+        var persons = {{ daily_persons|tojson }}.map(Number);
+        var detections = {{ daily_detections|tojson }}.map(Number);
+        var host = document.getElementById('dailyChart');
+        
+        var NS = 'http://www.w3.org/2000/svg';
+        var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        var LINE_MODE_FROM = 15; 
+        var HEIGHT = 300;
+
+        function el(tag, attrs, text) {
+            var n = document.createElementNS(NS, tag);
+            for (var k in attrs) n.setAttribute(k, attrs[k]);
+            if (text !== undefined) n.textContent = text; 
+            return n;
+        }
+        function parseDay(iso) {
+            var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+            return m ? { y: +m[1], m: +m[2] - 1, d: +m[3] } : null;
+        }
+        function shortDate(iso) { var p = parseDay(iso); return p ? p.d + ' ' + MONTHS[p.m] : iso; }
+        function longDate(iso) { var p = parseDay(iso); return p ? p.d + ' ' + MONTHS[p.m] + ' ' + p.y : iso; }
+        function niceScale(maxVal) {
+            if (maxVal <= 0) return { max: 4, step: 1 };
+            var rough = maxVal / 4;
+            var pow = Math.pow(10, Math.floor(Math.log10(rough)));
+            var f = rough / pow;
+            var step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * pow;
+            if (step < 1) step = 1;
+            return { max: Math.ceil(maxVal / step) * step, step: step };
+        }
+
+        function drawDaily() {
+            if (!host || !labels.length) return;
+            var W = Math.max(200, host.clientWidth), H = HEIGHT;
+            var m = { t: 16, r: 12, b: 34, l: 44 };
+            var pw = W - m.l - m.r, ph = H - m.t - m.b;
+            var n = labels.length;
+            var scale = niceScale(Math.max.apply(null, persons.concat(detections)));
+            function y(v) { return m.t + ph - (v / scale.max) * ph; }
+
+            var root = el('svg', { 'class': 'chart-svg', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H });
+
+            for (var v = 0; v <= scale.max; v += scale.step) {
+                root.appendChild(el('line', { 'class': v === 0 ? 'axis' : 'grid', x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }));
+                root.appendChild(el('text', { 'class': 'tick', x: m.l - 8, y: y(v) + 4, 'text-anchor': 'end' }, String(v)));
+            }
+
+            var band = pw / n;
+            var every = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(pw / 64))));
+            function cx(i) { return m.l + band * (i + 0.5); }
+            for (var i = 0; i < n; i++) {
+                if (i % every === 0) {
+                    root.appendChild(el('text', { 'class': 'tick', x: cx(i), y: H - 12, 'text-anchor': 'middle' }, shortDate(labels[i])));
+                }
+            }
+
+            var series = [
+                { data: persons,    bar: 'bar-people',     line: 'line-people',     dot: 'dot-people',     name: 'people counted' },
+                { data: detections, bar: 'bar-detections', line: 'line-detections', dot: 'dot-detections', name: 'detections' }
+            ];
+
+            if (n < LINE_MODE_FROM) {
+                var bw = Math.min(44, band * 0.36), gap = 4;
+                series.forEach(function (s, si) {
+                    s.data.forEach(function (val, i) {
+                        var h = val > 0 ? Math.max(2, (val / scale.max) * ph) : 0;
+                        var x = si === 0 ? cx(i) - bw - gap / 2 : cx(i) + gap / 2;
+                        var bar = el('rect', { 'class': s.bar, x: x, y: m.t + ph - h, width: bw, height: h, rx: 2 });
+                        bar.appendChild(el('title', {}, longDate(labels[i]) + ': ' + val + ' ' + s.name));
+                        root.appendChild(bar);
+                        if (bw >= 22 && val > 0) {
+                            root.appendChild(el('text', { 'class': 'value-label', x: x + bw / 2, y: m.t + ph - h - 5, 'text-anchor': 'middle' }, String(val)));
+                        }
+                    });
+                });
+            } else {
+                series.forEach(function (s) {
+                    var pts = s.data.map(function (val, i) { return cx(i) + ',' + y(val); }).join(' ');
+                    root.appendChild(el('polyline', { 'class': 'line ' + s.line, points: pts }));
+                    s.data.forEach(function (val, i) {
+                        var dot = el('circle', { 'class': s.dot, cx: cx(i), cy: y(val), r: n <= 40 ? 3 : 2 });
+                        dot.appendChild(el('title', {}, longDate(labels[i]) + ': ' + val + ' ' + s.name));
+                        root.appendChild(dot);
+                    });
+                });
+            }
+
+            host.textContent = '';
+            host.appendChild(root);
+        }
+
+        // ==========================================
+        // 2. GRAFIK PER JAM
+        // ==========================================
+        var hHost = document.getElementById('hourlyChart');
+        var hLabels = {{ hourly_labels|tojson }};
+        var hStanding = {{ hourly_standing|tojson }}.map(Number);
+        var hSitting = {{ hourly_sitting|tojson }}.map(Number);
+        var hWalking = {{ hourly_walking|tojson }}.map(Number);
+
+        function drawHourly() {
+            if (!hHost) return;
+            var W = Math.max(200, hHost.clientWidth), H = HEIGHT;
+            var m = { t: 16, r: 12, b: 34, l: 44 };
+            var pw = W - m.l - m.r, ph = H - m.t - m.b;
+            var n = 24; // 24 jam
+            
+            // Cari nilai maksimum untuk skala Y
+            var allVals = hStanding.concat(hSitting).concat(hWalking);
+            var scale = niceScale(Math.max.apply(null, allVals));
+            function y(v) { return m.t + ph - (v / scale.max) * ph; }
+
+            var root = el('svg', { 'class': 'chart-svg', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H });
+
+            // Garis bantu Y
+            for (var v = 0; v <= scale.max; v += scale.step) {
+                root.appendChild(el('line', { 'class': v === 0 ? 'axis' : 'grid', x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }));
+                root.appendChild(el('text', { 'class': 'tick', x: m.l - 8, y: y(v) + 4, 'text-anchor': 'end' }, String(v)));
+            }
+
+            var band = pw / n;
+            var every = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(pw / 64))));
+            function cx(i) { return m.l + band * (i + 0.5); }
+
+            // Label X (Jam)
+            for (var i = 0; i < n; i++) {
+                if (i % 2 === 0) { // Tampilkan setiap 2 jam agar tidak penuh
+                    root.appendChild(el('text', { 'class': 'tick', x: cx(i), y: H - 12, 'text-anchor': 'middle' }, hLabels[i]));
+                }
+            }
+
+            // Gambar batang (3 kelompok per jam)
+            var bw = Math.min(14, band * 0.25); 
+            var gap = 2;
+            var series = [
+                { data: hStanding, color: 'var(--act-standing)', name: 'standing' },
+                { data: hSitting,  color: 'var(--act-sitting)',  name: 'sitting' },
+                { data: hWalking,  color: 'var(--act-walking)',  name: 'walking' }
+            ];
+
+            series.forEach(function (s, si) {
+                s.data.forEach(function (val, i) {
+                    if (val <= 0) return; // jangan gambar batang 0
+                    var h = Math.max(2, (val / scale.max) * ph);
+                    var x = cx(i) - (bw * 1.5) + (si * (bw + gap)) + gap/2;
+                    var bar = el('rect', { 
+                        class: 'bar', 
+                        x: x, 
+                        y: m.t + ph - h, 
+                        width: bw, 
+                        height: h, 
+                        rx: 1.5, 
+                        fill: s.color 
+                    });
+                    bar.appendChild(el('title', {}, hLabels[i] + ' - ' + s.name + ': ' + val + ' events'));
+                    root.appendChild(bar);
+                });
+            });
+
+            hHost.textContent = '';
+            hHost.appendChild(root);
+        }
+
+        // Render saat pertama kali dan saat resize
+        var raf = 0;
+        function schedule() { cancelAnimationFrame(raf); raf = requestAnimationFrame(function(){ drawDaily(); drawHourly(); }); }
+        if (window.ResizeObserver) { new ResizeObserver(schedule).observe(host); }
+        else { window.addEventListener('resize', schedule); }
+        
+        drawDaily();
+        drawHourly();
+    })();
+</script>
+{% endif %}
+
+{% endblock %}

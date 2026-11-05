@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}{% if mode == 'add' %}Add user{% else %}Edit user{% endif %} - SIMOCS{% endblock %}
+{% block page_title %}{% if mode == 'add' %}Add user{% else %}Edit user{% endif %}{% endblock %}
+
+{% block content %}
+
+{# Role lama (super_admin) dianggap Admin, role lain dianggap User. Saat disimpan, nilainya menjadi admin atau user. #}
+{% set is_admin = user.role in ['admin', 'super_admin'] %}
+
+<div class="panel narrow">
+    <div class="panel-header">
+        <h3>{% if mode == 'add' %}New user{% else %}{{ user.username }}{% endif %}</h3>
+    </div>
+    <div class="panel-body">
+
+        <form method="POST"
+              action="{% if mode == 'add' %}/users/add{% else %}/users/edit/{{ user.id }}{% endif %}"
+              class="form-vertical">
+
+            <!-- USERNAME -->
+            <div class="form-field">
+                <label for="username">Username</label>
+                {% if mode == 'add' %}
+                    <input type="text" id="username" name="username"
+                           value="{{ user.username }}"
+                           required autofocus maxlength="50" autocomplete="off">
+                {% else %}
+                    <input type="text" id="username" value="{{ user.username }}" disabled>
+                    <small class="form-help">Username cannot be changed.</small>
+                {% endif %}
+            </div>
+
+            <!-- FULL NAME -->
+            <div class="form-field">
+                <label for="full_name">Full name</label>
+                <input type="text" id="full_name" name="full_name"
+                       value="{{ user.full_name }}"
+                       required maxlength="100" {% if mode == 'edit' %}autofocus{% endif %}>
+            </div>
+
+            <!-- PASSWORD -->
+            <div class="form-field">
+                <label for="password">{% if mode == 'add' %}Password{% else %}New password{% endif %}</label>
+                <div class="input-icon has-toggle">
+                    <input type="password" id="password" name="password"
+                           autocomplete="new-password" minlength="6"
+                           {% if mode == 'add' %}required{% endif %}>
+                    <button type="button" class="input-toggle" id="togglePassword" aria-label="Show password" aria-pressed="false">
+                        <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4l16 16" />
+                        </svg>
+                    </button>
+                </div>
+                <small class="form-help">
+                    {% if mode == 'add' %}
+                        At least 6 characters.
+                    {% else %}
+                        Leave blank to keep the current password. If you change it, use at least 6 characters.
+                    {% endif %}
+                </small>
+            </div>
+
+            <!-- ROLE -->
+            <div class="form-field">
+                <label for="role">Role</label>
+                <select id="role" name="role" required>
+                    <option value="admin" {% if is_admin %}selected{% endif %}>Admin</option>
+                    <option value="user" {% if not is_admin %}selected{% endif %}>User</option>
+                </select>
+                <small class="form-help">
+                    Admins can also manage users. Both roles can view the Dashboard, Monitoring, History, and Statistics.
+                </small>
+                {% if mode == 'edit' and user.id == session.user_id %}
+                <small class="form-warning">
+                    This is your own account. If you change your role to User, you will lose access to User Management.
+                </small>
+                {% endif %}
+            </div>
+
+            <!-- ACTIONS -->
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">
+                    {% if mode == 'add' %}Save user{% else %}Save changes{% endif %}
+                </button>
+                <a href="/users" class="btn-secondary">Cancel</a>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+<script>
+    // Tombol mata: tampilkan / sembunyikan password
+    (function () {
+        var btn = document.getElementById('togglePassword');
+        var input = document.getElementById('password');
+        btn.addEventListener('click', function () {
+            var show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            btn.classList.toggle('is-visible', show);
+            btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+            btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+            input.focus();
+        });
+    })();
+</script>
+
+{% endblock %}

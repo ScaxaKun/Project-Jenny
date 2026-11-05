@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - SIMOCS{% endblock %}
+{% block page_title %}User Management{% endblock %}
+
+{% block content %}
+
+<div class="panel">
+    <div class="panel-header">
+        <h3>Users</h3>
+        <div class="header-meta">
+            <span class="badge">{{ users|length }} user{{ '' if users|length == 1 else 's' }}</span>
+            <a href="/users/add" class="btn-primary">+ Add user</a>
+        </div>
+    </div>
+    <div class="panel-body flush">
+
+        {% if users %}
+        <table class="data-table users-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>
+                        <strong>{{ u.full_name }}</strong>
+                        {% if u.id == session.user_id %}<span class="tag-you">You</span>{% endif %}
+                    </td>
+                    <td>{{ u.username }}</td>
+                    <td>
+                        <!-- Menggunakan badge khusus Role, bukan warna aktivitas -->
+                        <span class="{% if u.role == 'admin' %}badge-role-admin{% else %}badge-role-user{% endif %}">
+                            {{ u.role|replace('_', ' ') }}
+                        </span>
+                    </td>
+                    <td>
+                        {%- if u.created_at.strftime is defined -%}
+                            {{ u.created_at.strftime('%d %b %Y, %H:%M') }}
+                        {%- else -%}
+                            {{ u.created_at or '-' }}
+                        {%- endif -%}
+                    </td>
+                    <td>
+                        <div class="row-actions">
+                            <a href="/users/edit/{{ u.id }}" class="btn-sm btn-sm-edit">Edit</a>
+
+                            {# Akun yang sedang dipakai tidak bisa dihapus sendiri #}
+                            {% if u.id != session.user_id %}
+                            <form method="POST" action="/users/delete/{{ u.id }}" class="delete-form" data-name="{{ u.username }}">
+                                <button type="submit" class="btn-sm btn-sm-delete">Delete</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">No users yet.</div>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- Dialog konfirmasi hapus -->
+<dialog id="deleteDialog" class="confirm-dialog" aria-labelledby="deleteTitle">
+    <div class="confirm-body">
+        <h3 id="deleteTitle">Delete user?</h3>
+        <p id="deleteText"></p>
+        <div class="confirm-actions">
+            <button type="button" class="btn-secondary" id="deleteCancel" autofocus>Cancel</button>
+            <button type="button" class="btn-danger" id="deleteConfirm">Delete</button>
+        </div>
+    </div>
+</dialog>
+
+<script>
+    // Tombol Delete membuka dialog konfirmasi. Nama user dimasukkan lewat textContent,
+    // jadi aman walaupun username berisi tanda kutip atau kode.
+    (function () {
+        var dialog = document.getElementById('deleteDialog');
+        var text = document.getElementById('deleteText');
+        var pending = null;
+
+        document.querySelectorAll('.delete-form').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                pending = form;
+                text.textContent = 'This permanently deletes "' + form.getAttribute('data-name') + '". This cannot be undone.';
+                if (typeof dialog.showModal === 'function') {
+                    dialog.showModal();
+                } else if (window.confirm(text.textContent)) {
+                    form.submit();
+                }
+            });
+        });
+
+        document.getElementById('deleteCancel').addEventListener('click', function () { pending = null; dialog.close(); });
+        document.getElementById('deleteConfirm').addEventListener('click', function () { if (pending) pending.submit(); });
+        dialog.addEventListener('click', function (e) { if (e.target === dialog) { pending = null; dialog.close(); } });
+    })();
+</script>
+
+{% endblock %}

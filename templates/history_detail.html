@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}History Detail - SIMOCS{% endblock %}
+{% block page_title %}Detection Detail{% endblock %}
+
+{% block content %}
+
+<!-- Tombol Kembali -->
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('history') }}" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back to History
+    </a>
+</div>
+
+<!-- Kartu Ringkasan Deteksi -->
+<div class="panel">
+    <div class="panel-header">
+        <h3>Detection Summary</h3>
+        <span class="badge">Record ID: #{{ detection.id }}</span>
+    </div>
+    <div class="panel-body">
+        <dl class="profile-list">
+            <div class="profile-row">
+                <dt>Time</dt>
+                <dd>{{ detection.timestamp.strftime('%d %b %Y, %H:%M:%S') }}</dd>
+            </div>
+            <div class="profile-row">
+                <dt>Camera</dt>
+                <dd>{{ detection.camera_id }}</dd>
+            </div>
+            <div class="profile-row">
+                <dt>Total People</dt>
+                <dd>{{ detection.person_count }} person(s)</dd>
+            </div>
+        </dl>
+    </div>
+</div>
+
+<!-- Tabel Detail Aktivitas -->
+<div class="panel">
+    <div class="panel-header">
+        <h3>Activity Details</h3>
+        <span class="badge">{{ activities|length }} record(s)</span>
+    </div>
+    <div class="panel-body flush">
+        <table class="data-table history-table">
+            <thead>
+                <tr>
+                    <th>Person ID</th>
+                    <th>Activity</th>
+                    <th>Duration</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for act in activities %}
+                <tr>
+                    <td><strong>Person #{{ act.person_id }}</strong></td>
+                    <td>
+                        {% set act_name = act.activity|lower %}
+                        <span class="badge-activity {% if act_name == 'standing' %}badge-standing{% elif act_name == 'sitting' %}badge-sitting{% elif act_name == 'walking' %}badge-walking{% else %}badge-default{% endif %}">
+                            {{ act.activity }}
+                        </span>
+                    </td>
+                    <td>{{ act.duration }} seconds</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="empty-state">No activities recorded for this detection.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

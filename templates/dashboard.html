@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SIMOCS{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<style>
+    /* (1) Tata Letak Kartu Ringkasan: Lebar proporsional, rata kiri */
+    .summary-strip.cols-4w {
+        display: grid;
+        grid-template-columns: 2.2fr 1fr 1fr 1fr;
+        align-items: stretch;
+        background-color: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+
+    /* (2) Isi Kartu: Rata Kiri, Padding Rapi */
+    .summary-strip.cols-4w .summary-cell {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: flex-start;
+        text-align: left;
+        padding: 12px 16px; 
+        position: relative;
+    }
+
+    .summary-strip.cols-4w .summary-heading {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        margin: 0 0 6px;
+        min-height: 0;
+    }
+
+    .summary-strip.cols-4w .summary-label {
+        font-size: 13px;
+        color: #3e5069;
+        font-weight: 600;
+    }
+
+    .summary-strip.cols-4w .summary-value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #1b2430;
+        line-height: 1.2;
+        font-variant-numeric: tabular-nums;
+        margin: 0 0 8px;
+        letter-spacing: -0.5px;
+    }
+
+    .summary-strip.cols-4w .status-pill.lg {
+        margin-bottom: 6px;
+    }
+
+    .summary-strip.cols-4w .summary-note {
+        font-size: 12px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        margin: 0;
+        max-width: 100%;
+    }
+
+    /* (3) CSS Panel Overview */
+    .activity-overview { margin-top: 20px; }
+    .overview-heading { display: flex; align-items: center; gap: 12px; }
+    .overview-subtitle { margin-top: 2px; color: var(--text-subtle); font-size: var(--fs-sm); font-weight: 400; }
+    .overview-bars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+    .overview-row { min-width: 0; }
+    .overview-row-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .overview-label { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: var(--fs-sm); font-weight: 600; }
+    .overview-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: 0 0 9px; }
+    .overview-count { color: var(--text); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .overview-track { height: 9px; overflow: hidden; background: #edf1f7; border-radius: 999px; }
+    .overview-fill { height: 100%; min-width: 0; border-radius: 999px; }
+    
+    .overview-fill.overview-animate {
+        animation: growWidth 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+    @keyframes growWidth {
+        from { width: 0%; }
+        to { width: var(--target-width); }
+    }
+    
+    .overview-blue { background: #3978d4; }
+    .overview-purple { background: #8056c7; }
+    .overview-green { background: #20a474; }
+    .overview-amber { background: #e6a23c; }
+    .overview-empty { grid-column: 1 / -1; padding: 18px; text-align: center; color: var(--text-subtle); background: #f7f9fc; border-radius: 10px; }
+    .overview-footnote { margin-top: 18px; color: var(--text-subtle); font-size: var(--fs-xs); }
+
+    /* (4) Penyesuaian Ukuran Tabel di Dashboard */
+    .dashboard-table .data-table th,
+    .dashboard-table .data-table td {
+        padding: 8px 16px; 
+        font-size: 12px;   
+    }
+
+    /* Responsive Dashboard */
+    @media (max-width: 1000px) {
+        .summary-strip.cols-4w { grid-template-columns: 1fr 1fr; }
+        .summary-strip.cols-4w .summary-cell:nth-child(odd) { border-left: none; }
+        .summary-strip.cols-4w .summary-cell:nth-child(n+3) { border-top: 1px solid var(--border); }
+    }
+    @media (max-width: 900px) {
+        .overview-bars { grid-template-columns: 1fr; gap: 18px; }
+    }
+    @media (max-width: 560px) {
+        .summary-strip.cols-4w { grid-template-columns: 1fr; }
+        .summary-strip.cols-4w .summary-cell + .summary-cell { border-left: none; border-top: 1px solid var(--border); }
+    }
+</style>
+
+<section class="summary-strip cols-4w" aria-label="Summary">
+
+    <div class="summary-cell summary-system">
+        <div class="summary-heading">
+            <div class="summary-label">System status</div>
+        </div>
+        <span class="status-pill lg" id="sysPill">Checking...</span>
+        <div class="summary-note" id="sysNote">&nbsp;</div>
+    </div>
+
+    <div class="summary-cell summary-people" id="peopleCell">
+        <div class="summary-heading">
+            <div class="summary-label">People detected</div>
+        </div>
+        <div class="summary-value" id="peopleCount">{{ detection.person_count if detection else 0 }}</div>
+        <div class="summary-note">In the latest detection</div>
+    </div>
+
+    <div class="summary-cell summary-alerts" id="alertCell">
+        <div class="summary-heading">
+            <div class="summary-label">Active alerts</div>
+        </div>
+        <div class="summary-value" id="alertCount">-</div>
+        <div class="summary-note" id="alertNote">&nbsp;</div>
+    </div>
+
+    <div class="summary-cell summary-cameras">
+        <div class="summary-heading">
+            <div class="summary-label">Cameras</div>
+        </div>
+        <div class="summary-value" id="cameraTotal">{{ total_cameras }}</div>
+        <div class="summary-note">That have sent data</div>
+    </div>
+
+</section>
+
+<div class="panel-grid align-start">
+
+    <div class="panel">
+        <div class="panel-header">
+            <h3>Camera status</h3>
+        </div>
+        <div class="panel-body flush dashboard-table">
+            {% if detection %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Camera</th>
+                        <th>Status</th>
+                        <th>Last data</th>
+                        <th>People</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong id="camName">{{ detection.camera_id }}</strong></td>
+                        <td><span class="status-pill" id="camPill">Checking...</span></td>
+                        <td>
+                            <div id="camTime">{{ detection.timestamp }}</div>
+                            <div class="cell-sub" id="camAgo">&nbsp;</div>
+                        </td>
+                        <td id="camPeople">{{ detection.person_count }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                No detection data yet. Run <code>test_api.py</code> to send simulated data.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="panel" id="activityPanel">
+        <div class="panel-header">
+            <h3 id="activityTitle">Current activity</h3>
+            <span class="badge" id="activityCount">{{ activities|length }} {{ 'person' if activities|length == 1 else 'people' }}</span>
+        </div>
+        <div class="panel-body flush dashboard-table">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Person</th>
+                        <th>Activity</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody id="activityBody">
+                    {% for act in activities %}
+                    <tr>
+                        <td>#{{ act.person_id }}</td>
+                        <td><span class="badge-activity badge-default">{{ act.activity }}</span></td>
+                        <td>{{ act.duration }} s</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="empty-state">No activity detected yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<section class="panel activity-overview" aria-labelledby="overviewTitle">
+    <div class="panel-header">
+        <div class="overview-heading">
+            <div><h3 id="overviewTitle">Current activity overview</h3><p class="overview-subtitle">Distribution from the latest detection</p></div>
+        </div>
+        <span class="badge" id="overviewTotal">{{ activities|length }} people</span>
+    </div>
+    <div class="panel-body">
+        <div id="activityOverviewBars" class="overview-bars" aria-live="polite"></div>
+        <p class="overview-footnote">Summary is based on the latest activity data received by SIMOCS.</p>
+    </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/simocs.js') }}"></script>
+<script>
+    (function () {
+        var HAS_DATA = {{ 'true' if detection else 'false' }};
+        var last = {{ (detection.timestamp|string)|tojson if detection else 'null' }};
+        var activities = {{ activities|tojson }};
+        var serverError = false;
+        var lastFresh = null;
+        var REFRESH_MS = 5000;
+        var overviewHasAnimated = false;
+
+        function $(id) { return document.getElementById(id); }
+        function el(tag, cls, text) {
+            var n = document.createElement(tag);
+            if (cls) n.className = cls;
+            if (text !== undefined) n.textContent = text;
+            return n;
+        }
+
+        function renderActivities() {
+            var list = activities;
+            var body = $('activityBody');
+            while (body.firstChild) body.removeChild(body.firstChild);
+
+            $('activityCount').textContent = Simocs.people(list.length);
+
+            if (list.length === 0) {
+                var tr = el('tr');
+                var td = el('td', 'empty-state', 'No activity detected yet.');
+                td.colSpan = 3;
+                tr.appendChild(td);
+                body.appendChild(tr);
+                return;
+            }
+            list.forEach(function (act) {
+                var alert = lastFresh && Simocs.isAlert(act);
+                var row = el('tr', alert ? 'is-alert' : null);
+                row.appendChild(el('td', null, '#' + act.person_id));
+
+                var tdAct = el('td');
+                tdAct.appendChild(el('span', 'badge-activity ' + Simocs.activityClass(act.activity), act.activity));
+                if (alert) tdAct.appendChild(el('span', 'alert-tag', 'Too long'));
+                row.appendChild(tdAct);
+
+                row.appendChild(el('td', alert ? 'duration-alert' : null, Simocs.formatLongDuration(act.duration)));
+                body.appendChild(row);
+            });
+        }
+
+        function renderActivityOverview() {
+            var container = $('activityOverviewBars');
+            if (!container) return;
+            while (container.firstChild) container.removeChild(container.firstChild);
+
+            var counts = { standing: 0, sitting: 0, walking: 0, other: 0 };
+            activities.forEach(function (act) {
+                var key = String(act.activity || '').toLowerCase();
+                if (key.indexOf('stand') !== -1) counts.standing++;
+                else if (key.indexOf('sit') !== -1) counts.sitting++;
+                else if (key.indexOf('walk') !== -1) counts.walking++;
+                else counts.other++;
+            });
+            var total = activities.length;
+            $('overviewTotal').textContent = Simocs.people(total);
+            var items = [
+                { key: 'standing', label: 'Standing', color: 'overview-blue' },
+                { key: 'sitting', label: 'Sitting', color: 'overview-purple' },
+                { key: 'walking', label: 'Walking', color: 'overview-green' }
+            ];
+            if (counts.other) items.push({ key: 'other', label: 'Other', color: 'overview-amber' });
+            if (!total) {
+                container.appendChild(el('div', 'overview-empty', 'No activity data available yet.'));
+                return;
+            }
+            items.forEach(function (item) {
+                var count = counts[item.key];
+                var row = el('div', 'overview-row');
+                var top = el('div', 'overview-row-top');
+                var label = el('span', 'overview-label');
+                var dot = el('span', 'overview-dot ' + item.color);
+                label.appendChild(dot);
+                label.appendChild(document.createTextNode(item.label));
+                top.appendChild(label);
+                top.appendChild(el('strong', 'overview-count', count + ' (' + Math.round(count / total * 100) + '%)'));
+                var track = el('div', 'overview-track');
+                var fill = el('div', 'overview-fill ' + item.color);
+                var percentage = (count / total * 100);
+                fill.style.setProperty('--target-width', percentage + '%');
+                fill.style.width = percentage + '%';
+
+                if (!overviewHasAnimated) {
+                    fill.classList.add('overview-animate');
+                }
+
+                track.appendChild(fill);
+                row.appendChild(top);
+                row.appendChild(track);
+                container.appendChild(row);
+            });
+            overviewHasAnimated = true;
+        }
+
+        function paintStatus() {
+            var f = Simocs.freshness(last);
+            var state = f.state, label = f.label;
+            if (serverError) { state = 'nodata'; label = 'Unknown'; }
+
+            var sysPill = $('sysPill');
+            sysPill.className = 'status-pill lg is-' + state;
+            sysPill.textContent = label;
+
+            var camPill = $('camPill');
+            if (camPill) { camPill.className = 'status-pill is-' + state; camPill.textContent = label; }
+
+            var old = (state === 'offline');
+            $('peopleCell').classList.toggle('is-old', old);
+            $('activityPanel').classList.toggle('is-old', old);
+            $('activityTitle').textContent = old ? 'Last known activity' : 'Current activity';
+
+            var note;
+            if (serverError)              note = 'Cannot reach the server. Retrying...';
+            else if (state === 'nodata')  note = 'No detection data has been received yet.';
+            else if (state === 'offline') note = 'No data for ' + f.duration + '. Check that the AI Engine is running.';
+            else                          note = 'Last data received ' + f.ageText + '.';
+            $('sysNote').textContent = note;
+
+            if ($('camTime') && f.date) {
+                $('camTime').textContent = Simocs.formatDateTime(f.date);
+                $('camAgo').textContent = f.ageText;
+            }
+
+            var fresh = (state === 'online' || state === 'delayed');
+            var count = fresh ? activities.filter(Simocs.isAlert).length : null;
+            $('alertCount').textContent = count === null ? '-' : count;
+            $('alertCell').classList.toggle('has-alert', count > 0);
+            $('alertCell').classList.toggle('is-old', count === null);
+            $('alertNote').textContent = count === null
+                ? 'Unavailable without recent data.'
+                : (count > 0
+                    ? 'Sitting or standing for ' + Simocs.formatLongDuration(Simocs.alertAfterSec) + ' or more.'
+                    : 'No one has stayed in one position too long.');
+
+            if (fresh !== lastFresh) { lastFresh = fresh; renderActivities(); }
+        }
+
+        function fetchLatest() {
+            fetch('/api/latest', { credentials: 'same-origin' })
+                .then(function (r) {
+                    if (r.redirected) { window.location.href = r.url; throw new Error('session ended'); }
+                    return r.json();
+                })
+                .then(function (data) {
+                    serverError = false;
+                    if (!data.has_data) { paintStatus(); return; }
+                    if (!HAS_DATA) { window.location.reload(); return; }
+
+                    last = data.timestamp;
+                    activities = data.activities || [];
+                    $('peopleCount').textContent = data.person_count;
+                    $('camPeople').textContent = data.person_count;
+                    $('camName').textContent = data.camera_id;
+                    paintStatus();
+                    renderActivities();
+                    renderActivityOverview();
+                })
+                .catch(function () { serverError = true; paintStatus(); });
+        }
+
+        paintStatus();
+        renderActivities();
+        renderActivityOverview();
+        setInterval(paintStatus, 1000);
+        setInterval(fetchLatest, REFRESH_MS);
+    })();
+</script>
+
+{% endblock %}
